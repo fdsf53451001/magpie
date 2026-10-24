@@ -596,6 +596,14 @@ var presets = []PresetDef{
 		Chat: "http://localhost:11234/v1", Responses: "http://localhost:11234/v1", Anthropic: "http://localhost:11234",
 		Decide: "http://localhost:11234/v1",
 		Note:   "local server, port 11234 by default", Website: "https://github.com/ddalcu/mlx-serve"},
+	// llama.cpp's llama-server: OpenAI's chat completions and responses
+	// and Anthropic's messages on one port, 9931 since v0.7.0 (8080
+	// before it, and in its Docker images: the Address moves it). Its
+	// /v1/models tells each model's window and whether it reads images
+	// (catalog's llamaWindow, llamaReadsImages)
+	{ID: "llamacpp", Name: "llama.cpp", Icon: "generic", Kind: KindLocal, NoKey: true,
+		Chat: "http://localhost:9931/v1", Responses: "http://localhost:9931/v1", Anthropic: "http://localhost:9931",
+		Note: "local server, port 9931 by default", Website: "https://github.com/ggml-org/llama.cpp"},
 
 	// another computer's magpie, shared on its network (remote_magpie.go):
 	// its providers, routing groups and usage stay there, each request

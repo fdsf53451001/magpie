@@ -602,6 +602,10 @@ func fetchPage(ctx context.Context, url, key string, anthropic bool, headers map
 			name = id
 		}
 		input := imageInput(r.Modalities.Input)
+		if input == nil && r.llamaServer() && r.llamaReadsImages() {
+			yes := true
+			input = &yes
+		}
 		apis := EndpointAPIs(r.Endpoints)
 		if native := EndpointAPIs(r.Native); len(native) > 0 {
 			apis = native
@@ -613,6 +617,8 @@ func fetchPage(ctx context.Context, url, key string, anthropic bool, headers map
 			InputModalities: r.Modalities.Input, OutputModalities: r.Modalities.Output}
 		if n, ok := r.ContextLength.(float64); ok && n > 0 {
 			m.Context = int(n)
+		} else if r.llamaServer() {
+			m.Context = r.llamaWindow()
 		}
 		if n, ok := r.Output.(float64); ok && n > 0 {
 			m.Output = int(n)
@@ -703,6 +709,51 @@ type liveModel struct {
 	// the protocol family PipeLLM routes the model by: openai, anthropic
 	// or gemini
 	TypeTarget string `json:"type_target"`
+	// llama.cpp's llama-server says its models are owned by "llamacpp",
+	// and tells each one's window in meta.n_ctx and what it reads in
+	// architecture.input_modalities rather than in the fields above.
+	// any and raw, as another vendor's odd value mustn't lose the whole
+	// list
+	OwnedBy      any             `json:"owned_by"`
+	Meta         json.RawMessage `json:"meta"`
+	Architecture json.RawMessage `json:"architecture"`
+}
+
+// llamaServer is whether the row is llama.cpp's llama-server's.
+func (r liveModel) llamaServer() bool {
+	return r.OwnedBy == "llamacpp"
+}
+
+// llamaWindow is the window llama-server gives each request: meta.n_ctx,
+// the context it was started with (-c) shared out over its slots. A
+// router's model that isn't loaded has no meta, and a 0 or an odd value
+// is not known.
+func (r liveModel) llamaWindow() int {
+	var meta struct {
+		NCtx any `json:"n_ctx"`
+	}
+	if json.Unmarshal(r.Meta, &meta) != nil {
+		return 0
+	}
+	if n, ok := meta.NCtx.(float64); ok && n > 0 && n <= math.MaxInt32 {
+		return int(n)
+	}
+	return 0
+}
+
+// llamaReadsImages is whether llama-server says the model reads images:
+// it was started with the model's projector (--mmproj). Text alone is
+// not taken as no images, as a router says that of a model it hasn't
+// loaded yet.
+func (r liveModel) llamaReadsImages() bool {
+	var arch struct {
+		Input any `json:"input_modalities"`
+	}
+	if json.Unmarshal(r.Architecture, &arch) != nil {
+		return false
+	}
+	xs, _ := arch.Input.([]any)
+	return slices.Contains(xs, any("image"))
 }
 
 // tiersOf are the ids of a list's service_tiers, as Codex's catalog

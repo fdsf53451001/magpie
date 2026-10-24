@@ -7,7 +7,7 @@ import (
 )
 
 // A local server's preset (KindLocal: Ollama, LM Studio, oMLX,
-// MLX-Serve) has the default port on this machine. The server can listen on another port, or
+// MLX-Serve, llama.cpp) has the default port on this machine. The server can listen on another port, or
 // run on another computer, so its address is the user's to give: only the
 // origin of each URL changes, each API keeping its own path (/v1 for chat,
 // the root for Anthropic).
